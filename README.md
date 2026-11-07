@@ -2,7 +2,7 @@
 
 Four maths minigames: Bubble Pop, Dino Snacks, Rocket Race, and Memory Match.
 
-[Play Lucky Games](https://cesarferreira.github.io/lucky-games/)
+[Play Lucky Games](https://cesarferreira.com/lucky-games/)
 
 ## Run locally
 
