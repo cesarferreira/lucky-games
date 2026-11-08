@@ -16,14 +16,27 @@
 const el = document.getElementById('app');
 const names = {bubble:'Bubble Pop',dino:'Dino Snacks',rocket:'Rocket Race',memory:'Memory Match'};
 const icons = {bubble:'🫧',dino:'🦕',rocket:'🚀',memory:'🃏'};
-const state = {screen:'home',mode:null,tables:[1,2,5],stars:0,earned:0,round:0,total:5,question:null,feedback:'',locked:false,memory:null,token:0};
+const tables = Array.from({length:12},(_,i)=>i+1);
+const storageKey = 'maths-quest.tables';
+function loadTables(){
+ try{
+  const saved=JSON.parse(localStorage.getItem(storageKey));
+  if(Array.isArray(saved)){
+   const selected=[...new Set(saved.filter(n=>tables.includes(n)))];
+   if(selected.length)return selected;
+  }
+ }catch{}
+ return [1,2,5];
+}
+function saveTables(){try{localStorage.setItem(storageKey,JSON.stringify(state.tables))}catch{}}
+const state = {screen:'home',mode:null,tables:loadTables(),stars:0,earned:0,round:0,total:5,question:null,feedback:'',locked:false,memory:null,token:0};
 const random = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
 const sample = arr => arr[Math.floor(Math.random()*arr.length)];
 const shuffle = arr => {const a=[...arr];for(let i=a.length-1;i>0;i--){let j=random(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
 const topbar = () => `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span> Maths Quest</div><span class="tally">⭐ ${state.stars} stars</span></div>`;
 function renderHome(){
   el.innerHTML = `${topbar()}<h1 class="home-title">What shall we play? 🎮</h1><p class="subtitle">Pick a game, have fun, and become a maths superstar!</p>
-  <section class="table-panel"><div class="panel-label">✨ Choose your times tables</div><div class="chips">${[1,2,3,4,5,10].map(t=>`<button class="chip ${state.tables.includes(t)?'active':''}" data-table="${t}" aria-pressed="${state.tables.includes(t)}">× ${t}</button>`).join('')}</div></section>
+  <section class="table-panel"><div class="panel-label">✨ Choose your times tables</div><div class="chips">${tables.map(t=>`<button class="chip ${state.tables.includes(t)?'active':''}" data-table="${t}" aria-pressed="${state.tables.includes(t)}">× ${t}</button>`).join('')}</div></section>
   <div class="game-grid">
     ${tile('bubble','Pop the bubbles!','Find the correct answer and pop it.','🫧','bubble-tile')}
     ${tile('dino','Feed the dino!','Count the snacks to feed your pal.','🦕','dino-tile')}
@@ -33,7 +46,7 @@ function renderHome(){
 }
 function tile(mode,title,desc,emoji,cls){return `<button class="game-tile ${cls}" data-mode="${mode}"><div class="tile-content"><h2 class="tile-name">${title}</h2><p class="tile-desc">${desc}</p><span class="play-pill">▶ Play now</span></div><span class="tile-art" aria-hidden="true">${emoji}</span></button>`}
 function question(){
- const a=sample(state.tables), b=random(1,state.mode==='dino'?4:5),answer=a*b;
+ const a=sample(state.tables), b=random(1,state.mode==='dino'?4:12),answer=a*b;
  const choices=new Set([answer]);const offsets=shuffle([-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,10,-10]);
  for(const d of offsets){if(choices.size===4)break;if(answer+d>0)choices.add(answer+d)}
  while(choices.size<4)choices.add(random(1,Math.max(12,answer+10)));
@@ -42,7 +55,7 @@ function question(){
 function start(mode){state.token++;state.mode=mode;state.screen='play';state.round=0;state.total=mode==='memory'?3:5;state.earned=0;state.feedback='';state.locked=false;if(mode==='memory'){newMemory()}else{question()}render()}
 function newMemory(){
  const pairs=[],used=new Set();let tries=0;
- while(pairs.length<3&&tries++<200){let a=sample(state.tables),b=random(1,5),v=a*b;if(used.has(v))continue;used.add(v);pairs.push({a,b,v})}
+ while(pairs.length<3&&tries++<200){let a=sample(state.tables),b=random(1,12),v=a*b;if(used.has(v))continue;used.add(v);pairs.push({a,b,v})}
  // In case a single selected times table has too few distinct results, expand the multiplier range.
  for(let b=1;pairs.length<3&&b<=12;b++){const a=state.tables[0],v=a*b;if(!used.has(v)){used.add(v);pairs.push({a,b,v})}}
  let cards=[];pairs.forEach((p,i)=>{cards.push({id:`q${i}`,kind:'question',pair:i,label:`${p.a} × ${p.b}`,matched:false});cards.push({id:`a${i}`,kind:'answer',pair:i,label:String(p.v),matched:false})});
@@ -61,17 +74,29 @@ function playView(){
    const m=state.memory;
    body=`<div class="prompt-tag">🃏 Memory Match</div><h1 class="question question-small">Find the matching pairs!</h1><p class="hint">Turn over two cards. Match a sum to its answer.</p><div class="match-grid">${m.cards.map(c=>{const isUp=c.matched||m.flipped.includes(c.id);return `<button class="match-card ${c.matched?'matched':isUp?'flipped':''}" data-card="${c.id}" ${c.matched?'disabled':''} aria-label="${isUp?c.label:'Hidden card'}">${c.matched?'✓ '+c.label:isUp?c.label:'✦'}</button>`}).join('')}</div>${feedback()}`;
  }
- return `${topbar()}<div class="game-heading"><button class="back" data-home="1">← All games</button><div class="game-label">${icons[state.mode]} ${names[state.mode]}</div></div>${progress()}<div class="play-area">${body}</div><p class="footer">Every try makes your brain stronger 💪</p>`
+ return `${topbar()}<div class="game-heading"><button class="back" data-home="1">← All games</button><div class="game-label">${icons[state.mode]} ${names[state.mode]}</div></div>${progress()}<div class="play-area" tabindex="-1">${body}</div><p class="footer">Every try makes your brain stronger 💪</p>`
 }
 function renderWin(){el.innerHTML=`${topbar()}<div class="game-win"><div class="win-art">🏆</div><h1 class="win-title">Amazing work!</h1><p class="win-sub">You finished ${names[state.mode]}!</p><div class="win-stars">⭐⭐⭐</div><p class="win-sub">You earned <strong>${state.earned} stars</strong>! Keep shining ✨</p><div class="actions"><button class="primary" data-replay="1">🔄 Play again</button><button class="secondary" data-home="1">🎮 Choose a game</button></div></div>`}
-function render(){if(state.screen==='home')renderHome();else if(state.screen==='win')renderWin();else el.innerHTML=playView()}
+function render(){
+ const active=document.activeElement;
+ const data=active?.dataset;
+ const key=data&&['table','answer','card'].find(k=>data[k]);
+ const hadFocus=el.contains?.(active);
+ if(state.screen==='home')renderHome();else if(state.screen==='win')renderWin();else el.innerHTML=playView();
+ if(hadFocus){
+  const target=(key&&document.querySelector(`[data-${key}="${data[key]}"]:not(:disabled)`))
+   ||document.querySelector(state.screen==='win'?'[data-replay]':state.screen==='home'?'[data-table]':'[data-answer]:not(:disabled),[data-card]:not(:disabled)')
+   ||document.querySelector('.play-area');
+  target?.focus({preventScroll:true});
+ }
+}
 function win(){state.token++;state.screen='win';render()}
 function correct(){state.locked=true;state.earned++;state.stars++;state.feedback='Brilliant! ⭐';render();const tk=state.token;setTimeout(()=>{if(tk!==state.token||state.screen!=='play')return;state.round++;if(state.round>=state.total){win()}else{state.feedback='';state.locked=false;question();render()}},850)}
 function answer(v){if(state.locked)return;if(v===state.question.answer){correct()}else{state.feedback=sample(['Nice try! Have another go 💛','Not quite — try again! 🌟','You can do it! 💪']);render()}}
 function cardClick(id){const m=state.memory;if(m.busy)return;const c=m.cards.find(c=>c.id===id);if(!c||c.matched||m.flipped.includes(id))return;m.flipped.push(id);state.feedback='';render();if(m.flipped.length===2){m.busy=true;const [x,y]=m.flipped.map(k=>m.cards.find(c=>c.id===k));const tk=state.token;if(x.pair===y.pair && x.kind!==y.kind){setTimeout(()=>{if(tk!==state.token)return;x.matched=true;y.matched=true;m.flipped=[];m.busy=false;state.round++;state.earned++;state.stars++;state.feedback='Brilliant! ⭐';if(state.round===state.total)win();else render()},550)}else{state.feedback='Try another pair! 💛';render();setTimeout(()=>{if(tk!==state.token)return;m.flipped=[];m.busy=false;state.feedback='';render()},1050)}}}
 el.addEventListener('click',e=>{
  const t=e.target.closest('button');if(!t)return;
- if(t.dataset.table){let n=Number(t.dataset.table);if(state.tables.includes(n)){if(state.tables.length>1)state.tables=state.tables.filter(x=>x!==n)}else{state.tables.push(n)}render();return}
+ if(t.dataset.table){let n=Number(t.dataset.table);if(state.tables.includes(n)){if(state.tables.length>1)state.tables=state.tables.filter(x=>x!==n)}else{state.tables.push(n)}saveTables();render();return}
  if(t.dataset.mode){start(t.dataset.mode);return}
  if(t.dataset.home){state.token++;state.screen='home';render();return}
  if(t.dataset.replay){start(state.mode);return}
